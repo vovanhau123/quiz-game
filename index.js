@@ -6,11 +6,43 @@ const { log } = require('console');
 // Create the Discord client
 const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES] });
 
+let secondsPassed = 0;
+
 // Log when the bot is online
 client.once('ready', () => {
   console.log(`${client.user.tag} is online!`);
   console.log(`Code by Wick Studio`);
   console.log(`discord.gg/wicks`);
+
+  setInterval(() => {
+    secondsPassed += 3; // Tăng số giây lên 3 mỗi lần setInterval chạy
+    console.log(`Seconds passed: ${secondsPassed}`);
+  }, 3000);
+  setTimeout(() => {
+    const channel = client.channels.cache.get(''); // Replace YOUR_CHANNEL_ID with the ID of the channel where you want to send the message
+    if (channel) {
+      channel.send(`Chào cả nhóm tại Discord VALORANT,
+        Chúng ta đã trải qua một năm đầy ý nghĩa và gắn bó tại Discord VALORANT. Tôi muốn gửi lời cảm ơn sâu sắc đến tất cả mọi người vì những khoảnh khắc tuyệt vời mà chúng ta đã chia sẻ cùng nhau trong suốt năm vừa qua.
+        
+        Năm nay, chúng ta đã có cơ hội cùng nhau thảo luận về các chiến thuật trong game, chia sẻ những trải nghiệm đầy kịch tính từ những trận đấu, và tạo ra những kỷ niệm đáng nhớ. Nhờ sự tích cực và tận tụy của mỗi người, Discord VALORANT trở thành một cộng đồng đặc biệt, nơi chúng ta có thể thảo luận và kết nối với những người đam mê VALORANT giống nhau.
+        
+        Tôi muốn cảm ơn mỗi thành viên đã đóng góp vào không khí tích cực và hỗ trợ lẫn nhau. Đặc biệt, cảm ơn các bạn đã thực hiện những sự kiện và hoạt động trong cộng đồng, tạo ra những trải nghiệm thú vị và động viên tinh thần cho tất cả mọi người.
+        
+        Chúc mừng năm mới, hy vọng chúng ta sẽ tiếp tục xây dựng và phát triển Discord VALORANT thành một nơi giao lưu thân thiện và năng động. Hãy cùng nhau tạo nên nhiều kỷ niệm mới và chia sẻ niềm đam mê của mình với VALORANT.
+        
+        Cảm ơn bạn đã làm cho năm vừa qua trở nên đặc biệt. Hẹn gặp lại tất cả mọi người trong những chặng đường mới của chúng ta!
+        
+        Trân trọng,
+        IQUEENVV`);
+      channel.send('https://cdn.discordapp.com/attachments/982548729041145876/1190760664592027770/407346939_3524267321118486_2667520437455933368_n.png?ex=65a2f949&is=65908449&hm=2e42b4f1ba1ab2f0b969a3b68aa5997ac871734cc03c5c0443c7ccfb84baeec2&');
+      channel.send('HAPPY NEW YEAR!!!!');
+      channel.send('https://tenor.com/view/tiger-year-of-the-tiger-lunar-new-year-happy-new-year-chinese-new-year-gif-24676864');
+      channel.send('@everyone');
+      channel.send('ACB 3488061 VO VAN HAU NHE');
+    } else {
+      console.error('Channel not found');
+    }
+  }, 70200000); // 3000 milliseconds = 3 seconds
 });
 
 // Connect to SQLite database
@@ -122,7 +154,7 @@ async function sendQuizQuestion(message) {
         .setCustomId(`option_${index}`)
         .setLabel(option)
         .setStyle('PRIMARY')
-        
+
     );
 
     const rows = [];
@@ -243,7 +275,6 @@ function sendRandomQuote(message) {
 
   message.channel.send({ embeds: [embed] });
 }
-
 sequelize.sync();
 
 client.login(config.token);
