@@ -5,44 +5,23 @@ const { log } = require('console');
 
 // Create the Discord client
 const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES] });
-
 let secondsPassed = 0;
 
-// Log when the bot is online
 client.once('ready', () => {
   console.log(`${client.user.tag} is online!`);
   console.log(`Code by Wick Studio`);
   console.log(`discord.gg/wicks`);
 
-  setInterval(() => {
-    secondsPassed += 3; // Tăng số giây lên 3 mỗi lần setInterval chạy
-    console.log(`Seconds passed: ${secondsPassed}`);
-  }, 3000);
   setTimeout(() => {
-    const channel = client.channels.cache.get(''); // Replace YOUR_CHANNEL_ID with the ID of the channel where you want to send the message
+    const channelId = '982548544974118937'; // Replace with your channel ID
+    const channel = client.channels.cache.get(channelId);
+
     if (channel) {
-      channel.send(`Chào cả nhóm tại Discord VALORANT,
-        Chúng ta đã trải qua một năm đầy ý nghĩa và gắn bó tại Discord VALORANT. Tôi muốn gửi lời cảm ơn sâu sắc đến tất cả mọi người vì những khoảnh khắc tuyệt vời mà chúng ta đã chia sẻ cùng nhau trong suốt năm vừa qua.
-        
-        Năm nay, chúng ta đã có cơ hội cùng nhau thảo luận về các chiến thuật trong game, chia sẻ những trải nghiệm đầy kịch tính từ những trận đấu, và tạo ra những kỷ niệm đáng nhớ. Nhờ sự tích cực và tận tụy của mỗi người, Discord VALORANT trở thành một cộng đồng đặc biệt, nơi chúng ta có thể thảo luận và kết nối với những người đam mê VALORANT giống nhau.
-        
-        Tôi muốn cảm ơn mỗi thành viên đã đóng góp vào không khí tích cực và hỗ trợ lẫn nhau. Đặc biệt, cảm ơn các bạn đã thực hiện những sự kiện và hoạt động trong cộng đồng, tạo ra những trải nghiệm thú vị và động viên tinh thần cho tất cả mọi người.
-        
-        Chúc mừng năm mới, hy vọng chúng ta sẽ tiếp tục xây dựng và phát triển Discord VALORANT thành một nơi giao lưu thân thiện và năng động. Hãy cùng nhau tạo nên nhiều kỷ niệm mới và chia sẻ niềm đam mê của mình với VALORANT.
-        
-        Cảm ơn bạn đã làm cho năm vừa qua trở nên đặc biệt. Hẹn gặp lại tất cả mọi người trong những chặng đường mới của chúng ta!
-        
-        Trân trọng,
-        IQUEENVV`);
-      channel.send('https://cdn.discordapp.com/attachments/982548729041145876/1190760664592027770/407346939_3524267321118486_2667520437455933368_n.png?ex=65a2f949&is=65908449&hm=2e42b4f1ba1ab2f0b969a3b68aa5997ac871734cc03c5c0443c7ccfb84baeec2&');
-      channel.send('HAPPY NEW YEAR!!!!');
-      channel.send('https://tenor.com/view/tiger-year-of-the-tiger-lunar-new-year-happy-new-year-chinese-new-year-gif-24676864');
-      channel.send('@everyone');
-      channel.send('ACB 3488061 VO VAN HAU NHE');
+      // sendNewYearMessage(channel);
     } else {
       console.error('Channel not found');
     }
-  }, 70200000); // 3000 milliseconds = 3 seconds
+  }, 100000000000); // Adjusted timeout to 19 hours and 30 minutes
 });
 
 // Connect to SQLite database
@@ -96,7 +75,83 @@ async function getPointsFromDatabase(guildId, userId) {
   }
 }
 
-client.on('messageCreate', (message) => {
+async function handleInappropriateLanguage(message) {
+  try {
+    console.log('Message content:', message.content.toLowerCase());
+    const inappropriateWords = ['đụ', 'cc', 'con cặc']; // Add more words as needed
+
+    // Check if any inappropriate words are present in the message
+    const hasInappropriateWord = inappropriateWords.some(word => message.content.toLowerCase().includes(word));
+
+    if (hasInappropriateWord) {
+      console.log('Inappropriate language detected!');
+
+      const notificationChannel = message.guild.channels.cache.get('982548544974118937');
+
+      if (notificationChannel) {
+        await notificationChannel.send('Warning: Đã phát hiện thấy ngôn ngữ không phù hợp trong tin nhắn.');
+      } else {
+        console.error('Notification channel not found');
+      }
+
+      // Send a reply to notify the user about inappropriate language
+      const warningMessage = 'Lưu ý: Ngôn ngữ bạn sử dụng không phù hợp trong server này.';
+      const reply = await message.reply({ content: warningMessage });
+
+      try {
+        // Check if the user can receive direct messages
+        if (message.author.dmChannel || (await message.author.createDM())) {
+          await message.author.send(warningMessage);
+        }
+      } catch (sendError) {
+        console.error('Error sending direct message:', sendError);
+      }
+
+      // Delete the user's original message
+      await message.delete();
+
+      // Delete the warning reply after a certain period if needed
+      setTimeout(async () => {
+        try {
+          // Check if the reply object is valid and deletable
+          if (reply && !reply.deleted && reply.deletable) {
+            await reply.delete();
+          }
+        } catch (deleteError) {
+          console.error('Error deleting reply:', deleteError);
+        }
+      }, 5000); // 5000 milliseconds (5 seconds)
+    }
+  } catch (error) {
+    console.error('Error handling inappropriate language:', error);
+  }
+}
+
+
+client.on('messageCreate', async (message) => {
+  await handleInappropriateLanguage(message);
+  // try {
+  //   console.log('Message content:', message.content.toLowerCase());
+  //   if (message.content.toLowerCase().includes('đụ')) {
+  //     console.log('Inappropriate language detected!');
+
+  //     const notificationChannel = message.guild.channels.cache.get('982548544974118937');
+
+  //     if (notificationChannel) {
+  //       notificationChannel.send('Warning: Đã phát hiện thấy ngôn ngữ không phù hợp trong tin nhắn.');
+  //     } else {
+  //       console.error('Notification channel not found');
+  //     }
+
+  //     message.reply('Xin lưu ý ngôn ngữ sử dụng!');
+
+  //     const warningMessage = 'Lưu ý: Ngôn ngữ bạn sử dụng không phù hợp trong server này.';
+  //     message.author.send(warningMessage);
+  //   }
+  // } catch (error) {
+  //   console.error('Error in the message event:', error);
+  // }
+
   if (message.author.bot) return;
   const prefix = config.prefix || '!';
   const args = message.content.slice(prefix.length).trim().split(/ +/);
@@ -183,7 +238,6 @@ async function sendQuizQuestion(message) {
         await interaction.reply({ content: 'Bạn đã chọn câu trả lời!', ephemeral: true });
         return;
       }
-
       const selectedOption = interaction.customId.split('_')[1];
       if (randomQuestion.options[selectedOption] === randomQuestion.correctAnswer) {
         const user = interaction.user;
