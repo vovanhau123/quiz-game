@@ -2,6 +2,11 @@ const fs = require('fs');
 const { Client, Intents, MessageEmbed, MessageActionRow, MessageButton } = require('discord.js');
 const { Sequelize, DataTypes } = require('sequelize');
 const { log } = require('console');
+const fetch = require('node-fetch'); // Add this line to import the fetch function
+const mongoose = require('mongoose');
+const { Schema, model } = mongoose;
+
+
 
 // Create the Discord client
 const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES] });
@@ -75,18 +80,33 @@ async function getPointsFromDatabase(guildId, userId) {
   }
 }
 
+// Define the InappropriateMessage model
+const inappropriateMessageSchema = new Schema({
+  content: { type: String, required: true },
+  user: { type: String, required: true },
+  timestamp: { type: Date, default: Date.now },
+});
+
+const InappropriateMessage = model('InappropriateMessage', inappropriateMessageSchema);
+
 async function handleInappropriateLanguage(message) {
   try {
     console.log('Message content:', message.content.toLowerCase());
-    const inappropriateWords = ['đụ', 'cc', 'con cặc']; // Add more words as needed
+    const user = message.author;
+    console.log('User:', user.tag);
 
-    // Check if any inappropriate words are present in the message
+    const inappropriateWords = ['đụ', 'cc', 'con cặc'];
+    await sendInappropriateMessageToAPI({
+      user: message.author.tag,
+      content: message.content,
+    });
+
     const hasInappropriateWord = inappropriateWords.some(word => message.content.toLowerCase().includes(word));
 
     if (hasInappropriateWord) {
       console.log('Inappropriate language detected!');
 
-      const notificationChannel = message.guild.channels.cache.get('982548544974118937');
+      const notificationChannel = message.guild.channels.cache.get(config.idChange);
 
       if (notificationChannel) {
         await notificationChannel.send('Warning: Đã phát hiện thấy ngôn ngữ không phù hợp trong tin nhắn.');
@@ -94,12 +114,10 @@ async function handleInappropriateLanguage(message) {
         console.error('Notification channel not found');
       }
 
-      // Send a reply to notify the user about inappropriate language
       const warningMessage = 'Lưu ý: Ngôn ngữ bạn sử dụng không phù hợp trong server này.';
       const reply = await message.reply({ content: warningMessage });
 
       try {
-        // Check if the user can receive direct messages
         if (message.author.dmChannel || (await message.author.createDM())) {
           await message.author.send(warningMessage);
         }
@@ -107,27 +125,43 @@ async function handleInappropriateLanguage(message) {
         console.error('Error sending direct message:', sendError);
       }
 
-      // Delete the user's original message
       await message.delete();
 
-      // Delete the warning reply after a certain period if needed
       setTimeout(async () => {
         try {
-          // Check if the reply object is valid and deletable
           if (reply && !reply.deleted && reply.deletable) {
             await reply.delete();
           }
         } catch (deleteError) {
           console.error('Error deleting reply:', deleteError);
         }
-      }, 5000); // 5000 milliseconds (5 seconds)
+      }, 5000);
     }
   } catch (error) {
     console.error('Error handling inappropriate language:', error);
   }
 }
 
+async function sendInappropriateMessageToAPI({ content, user }) {
+  try {
+    // Send a POST request to the API using 'node-fetch'
+    const response = await fetch('http://localhost:3000/api/inappropriate-messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ content, user }),
+    });
 
+    if (response.ok) {
+      console.log('Inappropriate message sent to API successfully.');
+    } else {
+      console.error('Failed to send inappropriate message to API:', response.statusText);
+    }
+  } catch (error) {
+    console.error('Error sending inappropriate message to API:', error);
+  }
+}
 client.on('messageCreate', async (message) => {
   await handleInappropriateLanguage(message);
   // try {
