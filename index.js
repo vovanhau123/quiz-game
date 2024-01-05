@@ -5,7 +5,7 @@ const { log } = require('console');
 const fetch = require('node-fetch'); // Add this line to import the fetch function
 const mongoose = require('mongoose');
 const { Schema, model } = mongoose;
-
+const axios = require('axios');
 
 
 // Create the Discord client
@@ -84,21 +84,32 @@ async function getPointsFromDatabase(guildId, userId) {
 const inappropriateMessageSchema = new Schema({
   content: { type: String, required: true },
   user: { type: String, required: true },
+  idchannel: { type: String, required: true },
   timestamp: { type: Date, default: Date.now },
 });
 
 const InappropriateMessage = model('InappropriateMessage', inappropriateMessageSchema);
+
 
 async function handleInappropriateLanguage(message) {
   try {
     console.log('Message content:', message.content.toLowerCase());
     const user = message.author;
     console.log('User:', user.tag);
+    const channelID = message.channel.id;
+    console.log('Channel ID:', channelID);
 
-    const inappropriateWords = ['đụ', 'cc', 'con cặc'];
+    // Thêm điều kiện để kiểm tra ID của channel
+    if (channelID === config.nocheckchannel) {
+      console.log('Skipping inappropriate language check for this channel.');
+      return;
+    }
+
+    const inappropriateWords = (config.texttoxic);
     await sendInappropriateMessageToAPI({
       user: message.author.tag,
       content: message.content,
+      idchannel: channelID,
     });
 
     const hasInappropriateWord = inappropriateWords.some(word => message.content.toLowerCase().includes(word));
@@ -142,7 +153,7 @@ async function handleInappropriateLanguage(message) {
   }
 }
 
-async function sendInappropriateMessageToAPI({ content, user }) {
+async function sendInappropriateMessageToAPI({ content, user, idchannel }) {
   try {
     // Send a POST request to the API using 'node-fetch'
     const response = await fetch('http://localhost:3000/api/inappropriate-messages', {
@@ -150,7 +161,7 @@ async function sendInappropriateMessageToAPI({ content, user }) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ content, user }),
+      body: JSON.stringify({ content, user, idchannel }),
     });
 
     if (response.ok) {
@@ -162,30 +173,128 @@ async function sendInappropriateMessageToAPI({ content, user }) {
     console.error('Error sending inappropriate message to API:', error);
   }
 }
+
+const yourUserId = '946092057989111843'; // Replace with your user ID
+const outputFilePath = 'all_messages.txt';
+
+async function fetchAllMessagesAndSendToAPI(guild, apiEndpoint) {
+  try {
+    const channels = guild.channels.cache.filter(channel => channel.isText());
+
+    const allMessages = [];
+    for (const [, channel] of channels) {
+      const messages = await channel.messages.fetch({ limit: 100 }); // Fetch the last 100 messages per channel
+      allMessages.push(...messages.values());
+    }
+
+    const messagesData = allMessages.map(message => ({
+      author: {
+        id: message.author.id,
+        tag: message.author.tag,
+      },
+      content: message.content,
+      channelID: message.channel.id,
+      timestamp: message.createdTimestamp, // Add timestamp here
+    }));
+
+    // Send the messages data to the API
+    await axios.post(apiEndpoint, { messages: messagesData });
+
+  } catch (error) {
+    console.error('Error fetching and sending messages:', error);
+    throw error;
+  }
+}
+
+async function handleSummaryCommand(message) {
+  try {
+    // Gửi yêu cầu đến API để lấy thông tin
+    const response = await axios.post('http://localhost:3000/api/analyze');
+    const data = response.data;
+
+    // Chuẩn bị nội dung để gửi đến kênh
+    const embed = new MessageEmbed()
+      .setTitle('Summary')
+      .setColor('#3498db'); // Màu xanh dương
+
+    // Hiển thị tên và số lượng người dùng
+    if (data.userCounts !== undefined) {
+      const userCountFields = Object.entries(data.userCounts).map(([user, count]) => `${user}: ${count}`);
+      const userCountsMessage = userCountFields.length ? userCountFields.toString() : 'No data available';
+      embed.addField('User Counts', userCountsMessage);
+
+    } else {
+      embed.addField('User Counts', 'No data available');
+    }
+
+    // Hiển thị số lượng từ cấm nếu có
+    if (data.wordCounts && data.wordCounts.đụ !== undefined && data.wordCounts.cc !== undefined) {
+      embed.addField('Word Counts', `đụ: ${data.wordCounts.đụ}, cc: ${data.wordCounts.cc}`);
+    } else {
+      embed.addField('Word Counts', 'No data available');
+    }
+
+    // Hiển thị kênh sử dụng nhiều nhất
+    if (data.mostUsedChannel !== undefined) {
+      embed.addField('Most Used Channel', data.mostUsedChannel || 'No data available');
+    } else {
+      embed.addField('Most Used Channel', 'No data available');
+    }
+
+    // Gửi thông tin đến kênh cụ thể
+    const channel = await client.channels.fetch(config.idChange);
+    if (channel) {
+      channel.send({ embeds: [embed] });
+    } else {
+      console.error('Invalid channel ID:', config.idChange);
+    }
+  } catch (error) {
+    console.error('Error fetching and sending summary:', error);
+    message.reply('Oops! Something went wrong while fetching the summary.');
+  }
+}
+
+// Define the function to handle the /total command
+async function handleTotalCommand(message) {
+  try {
+    // Extract the command from the message content
+    const prefix = config.prefix || '!';
+    const args = message.content.slice(prefix.length).trim().split(/ +/);
+    const command = args.shift().toLowerCase();
+
+    // Make sure the command is 'total'
+    if (command !== 'total') {
+      return;
+    }
+
+    // Make a GET request to the API endpoint
+    const response = await axios.get('http://localhost:3000/api/inappropriate-messages/analysis');
+    const data = response.data;
+
+    // Create an embed with the fetched data, converting numeric values to strings
+    const totalEmbed = {
+      title: 'Total Analysis',
+      color: '#3498db',
+      fields: [
+        { name: 'Total Messages', value: data.totalMessages.toString() },
+        { name: 'Total Timestamp', value: data.totalTimestamp.toString() },
+        { name: 'Total Users', value: data.totalUsers.toString() },
+        { name: 'Most Active User', value: `${data.mostActiveUser.user} (${data.mostActiveUser.messageCount.toString()} messages)` },
+      ],
+    };
+
+    // Send the embed to the channel
+    message.channel.send({ embeds: [totalEmbed] });
+  } catch (error) {
+    console.error('Error fetching and sending total:', error);
+    message.reply('Oops! Something went wrong while fetching the total data.');
+  }
+}
+
+
+
+
 client.on('messageCreate', async (message) => {
-  await handleInappropriateLanguage(message);
-  // try {
-  //   console.log('Message content:', message.content.toLowerCase());
-  //   if (message.content.toLowerCase().includes('đụ')) {
-  //     console.log('Inappropriate language detected!');
-
-  //     const notificationChannel = message.guild.channels.cache.get('982548544974118937');
-
-  //     if (notificationChannel) {
-  //       notificationChannel.send('Warning: Đã phát hiện thấy ngôn ngữ không phù hợp trong tin nhắn.');
-  //     } else {
-  //       console.error('Notification channel not found');
-  //     }
-
-  //     message.reply('Xin lưu ý ngôn ngữ sử dụng!');
-
-  //     const warningMessage = 'Lưu ý: Ngôn ngữ bạn sử dụng không phù hợp trong server này.';
-  //     message.author.send(warningMessage);
-  //   }
-  // } catch (error) {
-  //   console.error('Error in the message event:', error);
-  // }
-
   if (message.author.bot) return;
   const prefix = config.prefix || '!';
   const args = message.content.slice(prefix.length).trim().split(/ +/);
@@ -196,10 +305,6 @@ client.on('messageCreate', async (message) => {
     if (quizCooldowns.has(message.author.id)) {
       // User has not answered the previous question, remind them
       message.reply({ content: 'Bạn hãy trả lời câu trước đã!', ephemeral: true });
-      // } else {
-      //   // User has already answered a question, proceed with the next question
-      //   console.log(rep1);
-      //   message.reply({ content: 'Bạn hãy trả lời câu trước đã!', ephemeral: true });
     }
 
     quizCooldowns.set(message.author.id, true);
@@ -213,6 +318,23 @@ client.on('messageCreate', async (message) => {
   } else if (command === 'tweet') {
     sendRandomQuote(message);
   }
+  if (message.content.toLowerCase() === '/toxic') {
+    handleSummaryCommand(message);
+  }
+  if (message.content.toLowerCase() === '/getall') {
+    try {
+      const guild = message.guild;
+      const apiEndpoint = 'http://localhost:3000/api/getAll'; // Replace with your API endpoint
+
+      await fetchAllMessagesAndSendToAPI(guild, apiEndpoint);
+      message.reply('All messages have been sent to the API.');
+    } catch (error) {
+      console.error('Error executing /getAll:', error);
+      message.reply('Oops! Something went wrong while fetching and sending messages.');
+    }
+  }
+  await handleInappropriateLanguage(message);
+  await handleTotalCommand(message);
 });
 
 async function sendQuizQuestion(message) {
@@ -230,12 +352,6 @@ async function sendQuizQuestion(message) {
     // Chọn một câu hỏi ngẫu nhiên từ mảng được xáo trộn
     const randomQuestion = quizData[Math.floor(Math.random() * quizData.length)];
 
-
-    // const embed = new MessageEmbed()
-    //   .setColor('#4e5058')
-    //   .setTitle('Trò chơi đố vui')
-    //   .setThumbnail('https://cdn.discordapp.com/attachments/1084617747897536694/1189660921744855060/407346939_3524267321118486_2667520437455933368_n.png?ex=659ef912&is=658c8412&hm=528b7e984c98641faf774ad4d4438551460a4c519b25e2fe245c0d5cb84a6300&')
-    //   .setDescription(`**${randomQuestion.question}**`);
     const content = `**${randomQuestion.question}**`;
 
     const options = randomQuestion.options.map((option, index) =>

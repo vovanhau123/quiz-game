@@ -1,6 +1,9 @@
 {
-    "prefix": "!",
-    "token": "MTE5MDA4ODQ3NTgzMjIyMTgzOQ.G6yWFf.gBaobMT2zdjiTj2N-tMPByXqWn2-F1-PBGytqk", 
-    "allowedClearUserId": "946092057989111843",
-    "idChange": "1191111910695899217"
-  }
+  "prefix": "!",
+  "token": "", 
+  "allowedClearUserId": "946092057989111843",
+  "idChange": "982548544974118937",
+  "user": "game#2237",
+  "texttoxic": ["đụ", "cc", "con cặc","lồn","niga","clmm","ngu","mẹ","chó"],
+   "nocheckchannel":"982548544974118937"
+}
